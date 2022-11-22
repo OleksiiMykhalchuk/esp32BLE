@@ -1,26 +1,35 @@
 #include <DHTesp.h>
-#include <WiFi.h>
+#include <BLEDevice.h>
+#include <BLEUtils.h>
+#include <BLEServer.h>
 
 DHTesp dht;
 
 #define TEMP_PIN 13
 uint32_t lastTime = 0;
 uint32_t timerDelay = 5000;
+double temp;
+double offset = 2.0;
 
-double temp = 0;
-String header;
+#define PERIPHERAL_NAME "ESP32 BLE"
+#define SERVICE_UUID "da30e919-38b1-469e-9081-da9f59c04c34"
+#define CHARACTERISTIC_UUID "f8abccc0-488f-4747-8dd2-808a4c70bfc3"
 
-const char* ssid = "esp";
-const char* pass = "12345678";
-
-WiFiServer server(80);
+class InputReceivedCallbacks: public BLECharacteristicCallbacks {
+  
+};
 
 void setup() {
   Serial.begin(9600);
   dht.setup(TEMP_PIN, DHTesp::DHT11);
-  WiFi.softAP(ssid, pass);
-  Serial.println(WiFi.softAPIP());
-  server.begin();
+
+  BLEDevice::init(PERIPHERAL_NAME);
+  BLEServer *pServer = BLEDevice::createServer();
+  BLEService *pService = pServer->createService(SERVICE_UUID);
+
+  BLECharacteristic *pInputChar = pService->createCharacteristic(
+    CHARACTERISTIC_UUID, 
+    BLECharacteristic::PROPERTY_WRITE_NR | BLECharacteristic::PROPERTY_WRITE);
 }
 
 void loop() {
@@ -28,56 +37,9 @@ void loop() {
     TempAndHumidity data = dht.getTempAndHumidity();
     temp = data.temperature;
     Serial.println("Temperatura = ");
-    Serial.print(temp);
+    Serial.print(temp - offset);
     Serial.println("");
-    Serial.println(WiFi.localIP());
-    lastTime = millis();
     
-    /*
-    int networks = WiFi.scanNetworks();
-    if (networks == 0) {
-      Serial.println("No Networks");
-    } else {
-      Serial.print(networks);
-      Serial.println(" networks found.");
-      for (int i = 0; i < networks; i++) {
-        Serial.println("SSID: ");
-        Serial.print(WiFi.SSID(i));
-        Serial.println("");
-      }
-    }
-    */
-    WiFiClient client = server.available();
-    if (client) {
-      Serial.print("New Client");
-      String currentLine = "";
-      while (client.connected()) {
-        if (client.available()) {
-          char c = client.read();
-          Serial.write(c);
-          header += c;
-          if (c == '\n') {
-            if (currentLine.length() == 0) {
-              client.println("HTTP/1.1 200 OK");
-              client.println("Content-type:text/html");
-              client.println("Connection: close");
-              client.println();
-
-              client.println("Temperature: ");
-              client.println(temp);
-              break;
-            } else {
-              currentLine = "";
-            }
-          } else if (c != '\r') {
-            currentLine += c;
-          }
-        }
-      }
-      client.stop();
-      Serial.println("Client Disconnected");
-      Serial.println();
-    }
+    lastTime = millis();
   }
-
 }
