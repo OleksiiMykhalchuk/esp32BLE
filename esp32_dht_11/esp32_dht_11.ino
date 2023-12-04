@@ -1,15 +1,21 @@
-#include <DHTesp.h>
+
 #include <BLEDevice.h>
 #include <BLEUtils.h>
 #include <BLEServer.h>
 
-DHTesp dht;
+#include "LCD.h"
+#include "TempSensore.h"
 
-#define TEMP_PIN 13
+TemperatureManager sensor;
+Sensor model;
+// DHTesp dht;
+
+// #define TEMP_PIN 13
 uint32_t lastTime = 0;
 uint32_t timerDelay = 5000;
 double temp;
-double offset = 2.0;
+double const offset = 6.0;
+float setPoint = 20.0;
 
 #define PERIPHERAL_NAME "ESP32 BLE"
 #define SERVICE_UUID "da30e919-38b1-469e-9081-da9f59c04c34"
@@ -55,7 +61,8 @@ class InputReceivedCallbacks: public BLECharacteristicCallbacks {
 
 void setup() {
   Serial.begin(9600);
-  dht.setup(TEMP_PIN, DHTesp::DHT11);
+  
+  sensor = TemperatureManager();
 
   BLEDevice::init(PERIPHERAL_NAME);
   BLEServer *pServer = BLEDevice::createServer();
@@ -80,12 +87,15 @@ void setup() {
   pAdvertising->addServiceUUID(SERVICE_UUID);
   pAdvertising->setScanResponse(true);
   BLEDevice::startAdvertising();
+
+  initLCD();
 }
 
 void loop() {
   if ((millis() - lastTime) > timerDelay) {
-    TempAndHumidity data = dht.getTempAndHumidity();
-    temp = data.temperature;
+    model = sensor.getData();
+    temp = model.temp;
+    float humid = model.humid;
     float current = temp - offset;
     Serial.println("Temperatura = ");
     Serial.print(current);
@@ -95,5 +105,14 @@ void loop() {
     pOutputChar->notify();
     
     lastTime = millis();
+
+    bool isOn;
+    if (current < setPoint) { 
+      isOn = true;
+    } else {
+      isOn = false;
+    }
+
+    printTemp(current, (uint8_t)humid, isOn, setPoint);
   }
 }
