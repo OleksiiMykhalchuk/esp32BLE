@@ -1,5 +1,5 @@
-#ifndef TEMP_SENSORE
-#define TEMP_SENSORE
+#ifndef TEMP_SENSORE_H_
+#define TEMP_SENSORE_H_
 
 #include <DHTesp.h>
 
@@ -22,4 +22,4 @@ class TemperatureManager {
   Sensor getData();
 };
 
-#endif
+#endif /* TEMP_SENSORE_H_ */
